@@ -1,7 +1,5 @@
-import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useEffect, useState } from 'react'
 import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native'
-// import { auth } from '../../firebaseconfig';
 import { useNavigation } from '@react-navigation/native';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
@@ -10,7 +8,6 @@ function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [id, setId] = useState('');
   const [idToken, setIdToken] = useState('');
   const [expiresIn, setExpiresIn] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
@@ -84,19 +81,8 @@ function Login() {
 
   useEffect(() => {
 
-    // const unsubscribe = onAuthStateChanged(auth, (user) => {
-    //   if (user) {
-    //     // User is signed in.
-    //     navigation.navigate('Home');
-    //   } else {
-    //     // User is signed out.
-    //     console.log('User is signed out');
-    //   }
-    // });
-
-    // return unsubscribe;
-
     checkTokenAndExecuteRequest();
+
   }, [])
 
   const handleNavigate = () => {

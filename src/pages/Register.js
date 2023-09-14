@@ -1,13 +1,10 @@
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Button, Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native';
-import { auth } from '../../firebaseconfig';
+import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 
 function Register() {
 
-    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 

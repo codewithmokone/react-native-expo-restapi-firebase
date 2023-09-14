@@ -3,13 +3,10 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react'
 import { Button, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { auth, db, storage } from '../../firebaseconfig';
-import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Audio } from 'expo-av';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
-// import auth from '@react-native-firebase/auth';
-// import firebase from 'firebase/app'
-// import 'firebase/auth';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
 const projectId = 'react-native-audio-recor-506b1';
@@ -26,7 +23,7 @@ function Home({ route }) {
     const [editingIndex, setEditingIndex] = useState(-1);
     const [isPlaying, setIsPlaying] = useState(false);
     const [userId, setUserId] = useState(user.localId);
-    const [recordUrl, setRecordUrl] = useState('');
+    const [recordURL, setRecordURL] = useState('');
 
     const navigation = useNavigation();
 
@@ -123,51 +120,77 @@ function Home({ route }) {
 
             if (blob != null) {
 
-                const audioFileRef = ref(storage, `audio/${user.localId}/${title}`);
+                let recordUrl = ''
+
+                const audioFileRef = ref(storage, `audio/${userId}/${title}`);
                 const upload = uploadBytes(audioFileRef, blob).then(() => {
-                    getDownloadURL(audioFileRef).then(async (url) => {
-                        // await addDoc(collection(db, 'recordings'), {
-                        //     name: name,
-                        //     duration: getDurationFormatted(status.durationMillis),
-                        //     fileURL: url,
-                        //     userId: user.localId,
-                        // })
-                        // try {
-
-                        //     const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}`;
-                        //     const recordData = {
-                        //         title: title,
-                        //         duration: getDurationFormatted(status.durationMillis),
-                        //         fileURL: url,
-                        //         userId: userId,
-                        //     }
-
-
-                        //     const response = await fetch(endpoint, {
-                        //         method: 'POST',
-                        //         headers: {
-                        //             'Content-Type': 'application/json',
-                        //         },
-                        //         body: JSON.stringify(recordData),
-                        //     });
-
-                        //     const recordedData = await response.json();
-                        //     console.log("Record data saved : ", recordedData)
-                        //     return data
-                        // } catch (err) {
-                        //     console.log('Record data not saved: ', err)
-                        // }
-
-                        setRecordUrl(url)
+                    getDownloadURL(audioFileRef).then((url) => {
+                        recordUrl = url;
+                        console.log(recordUrl)
+                        setRecordURL(recordUrl)
                     })
                 })
+               
 
-                const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?key=${apiKey}`;
+                //                 import RNFetchBlob from 'react-native-fetch-blob';
+
+                // async function uploadMediaToFirebaseStorage(fileUri) {
+                //     const bucketName = 'your-firebase-storage-bucket-name';
+                //     const objectName = 'path/to/your/file.jpg'; // Replace with the desired path and file name
+                //     const apiUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${objectName}`;
+
+                //     // Replace 'YOUR_AUTH_TOKEN' with your Firebase Storage authorization token
+                //     const authToken = 'YOUR_AUTH_TOKEN';
+
+                //     try {
+                //         const response = await RNFetchBlob.fetch('POST', apiUrl, {
+                //             Authorization: `Bearer ${authToken}`,
+                //             'Content-Type': 'multipart/form-data',
+                //         }, [
+                //             { name: 'file', filename: 'file.jpg', data: RNFetchBlob.wrap(fileUri) },
+                //         ]);
+
+                //         if (response.respInfo.status === 200) {
+                //             console.log('Media uploaded successfully.');
+                //         } else {
+                //             console.error('Failed to upload media:', response.respInfo.status, response.data);
+                //         }
+                //     } catch (error) {
+                //         console.error('Error uploading media:', error);
+                //     }
+                // }
+
+                // // Example usage:
+                // import DocumentPicker from 'react-native-document-picker';
+
+                // async function pickAndUploadMedia() {
+                //     try {
+                //         const result = await DocumentPicker.pick({
+                //             type: [DocumentPicker.types.images], // You can specify the media types you want to allow
+                //         });
+
+                //         uploadMediaToFirebaseStorage(result.uri);
+                //     } catch (error) {
+                //         console.error('Error picking a file:', error);
+                //     }
+                // }
+
+                const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?&key=${apiKey}`;
                 const recordData = {
-                    title: title,
-                    duration: getDurationFormatted(status.durationMillis),
-                    fileURL: recordUrl,
-                    userId: userId,
+                    "fields": {
+                        "duration": {
+                            "stringValue": `${getDurationFormatted(status.durationMillis)}`
+                        },
+                        "userId": {
+                            "stringValue": `${user.localId}`
+                        },
+                        "title": {
+                            "stringValue": `${title}`
+                        },
+                        "fileURL": {
+                            "stringValue": `${recordURL}`
+                        }
+                    }
                 }
 
                 const response = await fetch(endpoint, {
@@ -179,8 +202,7 @@ function Home({ route }) {
                 });
 
                 const recordedData = await response.json();
-                console.log("Record data saved : ", recordedData)
-                // return data
+                console.log("Recorded data saved : ", recordedData)
 
                 let updatedRecordings = [
                     ...recordings,
@@ -213,73 +235,78 @@ function Home({ route }) {
 
     // Handles the stored recordings view
     function getRecordingLines() {
-        return recordings.map((recordingLine, index) => {
 
-            const sound = new Audio.Sound();
+        if (!recordings) {
+            return <Text>No recordings availabe</Text>
+        } else {
+            return recordings.map((recordingLine, index) => {
 
-            // Handles the play function
-            const handlePlay = async () => {
-                if (!isPlaying) {
-                    try {
-                        setIsPlaying(true)
-                        await sound.loadAsync({ uri: recordingLine.fileURL })
-                        await sound.playAsync();
-                        sound.setOnPlaybackStatusUpdate(status => {
-                            if (status.didJustFinish) {
-                                setIsPlaying(false);
-                            }
-                        });
-                    } catch (err) {
-                        console.log('Error playing audio', err);
-                        setIsPlaying(false);
+                const sound = new Audio.Sound();
+
+                // Handles the play function
+                const handlePlay = async () => {
+                    if (!isPlaying) {
+                        try {
+                            setIsPlaying(true)
+                            await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
+                            await sound.playAsync();
+                            sound.setOnPlaybackStatusUpdate(status => {
+                                if (status.didJustFinish) {
+                                    setIsPlaying(false);
+                                }
+                            });
+                        } catch (err) {
+                            console.log('Error playing audio', err);
+                            setIsPlaying(false);
+                        }
                     }
                 }
-            }
 
-            console.log("recordings ", recordingLine);
+                return (
+                    <View key={index} style={styles.row}>
+                        <Text style={styles.fill}>{recordingLine.title.stringValue} - {recordingLine.duration.stringValue}</Text>
+                        <Pressable style={styles.btnEdit} onPress={handlePlay}>
+                            <Icon name="play" size={20} color="#E0A96D" />
+                        </Pressable>
+                        <View style={styles.btnEdit}>
+                            {
+                                editingIndex === index ? (
+                                    <View>
+                                        <Pressable onPress={() => updateRecording(index)}>
+                                            <Icon name="save" size={20} color="#E0A96D" />
+                                        </Pressable>
+                                    </View>
+                                ) : (
+                                    <View>
+                                        <Pressable onPress={() => editRecordingName(index)}>
+                                            <Icon name="edit" size={20} color="#E0A96D" />
+                                        </Pressable>
+                                    </View>
+                                )
+                            }
+                        </View>
 
-            return (
-                <View key={index} style={styles.row}>
-                    <Text style={styles.fill}>{recordingLine.name} - {recordingLine.duration}</Text>
-                    <Pressable style={styles.btnEdit} onPress={handlePlay}>
-                        <Icon name="play" size={20} color="#E0A96D" />
-                    </Pressable>
-                    <View style={styles.btnEdit}>
-                        {
-                            editingIndex === index ? (
-                                <View>
-                                    <Pressable onPress={() => updateRecording(index)}>
-                                        <Icon name="save" size={20} color="#E0A96D" />
-                                    </Pressable>
-                                </View>
-                            ) : (
-                                <View>
-                                    <Pressable onPress={() => editRecordingName(index)}>
-                                        <Icon name="edit" size={20} color="#E0A96D" />
-                                    </Pressable>
-                                </View>
-                            )
-                        }
+                        <Pressable style={styles.btnDelete} onPress={() => deleteRecording(index)}>
+                            <Icon name="remove" size={20} color="#E0A96D" />
+                        </Pressable>
                     </View>
-
-                    <Pressable style={styles.btnDelete} onPress={() => deleteRecording(index)}>
-                        <Icon name="remove" size={20} color="#E0A96D" />
-                    </Pressable>
-                </View>
-            );
-        });
+                );
+            });
+        }
     }
 
     // Handles the edit functionality
     function editRecordingName(index) {
         setEditingIndex(index);
-        setTitle(recordings[index].title);
+        setTitle(recordings[index].title.stringValue);
     }
 
     // Handles the update functionality
     async function updateRecording(index) {
 
-        const recording = recordings[index]
+        const recording = recordings[index];
+
+        console.log("Update ",recordings[index])
 
         try {
             // Update the name in Firestore
@@ -305,57 +332,65 @@ function Home({ route }) {
     async function deleteRecording(index) {
 
         const recordingToDelete = recordings[index];
-
-        console.log(recordingToDelete.firestoreDocId)
-
+        
         try {
+            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete}=${apiKey}`;
+            // const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/3L4rZmt4G6RieXrYz3H9?key=${apiKey}`;
+            
+            const response = await fetch(endpoint, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-            // Delete from Firestore
-            const recordingDocRef = doc(db, 'recordings', recordingToDelete.firestoreDocId);
-            await deleteDoc(recordingDocRef);
-            console.log('Recording details deleted from Firebase');
+            if (response) {
+                console.log('Recording has been deleted from firestore');
 
-            //  Delete from Firebase Storage
-            const audioFileRef = ref(storage, `audio/${user.uid}/${recordingToDelete.title}`);
-            await deleteObject(audioFileRef);
-            console.log('Recording deleted from storage');
+                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.title.stringValue}`)
+                await deleteObject(audioFileRef);
+                console.log('Recording deleted from storage')
 
-        } catch (err) {
-            console.log(err);
+                const updatedRecordings = [...recordings];
+                updatedRecordings.splice(title, 1);
+                setRecordings(updatedRecordings);
+            } else {
+                console.log('Failed to delete recordings')
+            }
+        
+        } catch(err){
+            console.log('Error deleting document ', err)
         }
-
-        // Update the state after deleting
-        const updatedRecordings = recordings.filter((_, i) => i !== index);
-        setRecordings(updatedRecordings);
     }
 
     // Loading the recording from Firebase Firestore
     async function loadRecordings() {
 
         if (userId) {
-
             try {
-
                 const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?key=${apiKey}`;
-
                 const response = await fetch(endpoint);
                 const responseData = await response.json();
                 const documents = responseData.documents || [];
                 const recordingsArray = []
+                const recordingsObject = {}
 
                 documents.forEach(document => {
-                    // Extract data from each document and push it to the array
                     const data = document.fields; // Assuming data is stored in "fields"
-                    // Adjust the above line based on your Firestore data structure
+                    const parts = document.name.split('/');
+                    const id = parts[parts.length - 1]; // The last part is the document ID
                     recordingsArray.push(data);
-                    setRecordings(recordingsArray);
+                    recordingsObject[id] = data;
+                  
                 });
-    
-                console.log("Checking ", recordings)
+                
+                setRecordings(recordingsArray);
 
             } catch (err) {
                 console.error('Error fetching Firestore data: ', err);
             }
+        } else {
+            return <Text>Please login to see the recordings</Text>
         }
     }
 
@@ -366,31 +401,11 @@ function Home({ route }) {
             loadRecordings();
         }
 
-        // const unsubscribe = firebase.auth().onAuthStateChanged((authUser) => {
-        //     if (authUser) {
-        //         setUser(authUser)
-        //     } else {
-        //         setUser(null)
-        //     }
-        //  })
-
-        // async function fetchDataFromAPI() {
-        //     try{
-        //         const result = await fetchData();
-        //         setRecordings(result);
-        //     }catch(err){
-        //         console.log('Error fecthing data', err)
-        //     }
-        // }
-
-        // fetchDataFromAPI();
-
-        //  return () => unsubscribe();
-
     }, [userId])
 
     return (
         <SafeAreaView>
+
             <View style={styles.container}>
                 <View style={styles.userInfo} >
                     <Text style={styles.userInfoText}><Icon name="user" size={20} color='#E0A96D' /> : {user.email}</Text>
@@ -421,7 +436,6 @@ function Home({ route }) {
                 </View>
             </View>
         </SafeAreaView>
-
     )
 }
 
