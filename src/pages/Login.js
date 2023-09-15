@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native'
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
+const API_URL = 'https://www.psswrd.net/api/v1/password/';
 
 function Login() {
 
@@ -11,10 +14,12 @@ function Login() {
   const [idToken, setIdToken] = useState('');
   const [expiresIn, setExpiresIn] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
+  const [generatedPsswrd, setGeneratedPsswrd] = useState('')
 
-  const navigation = useNavigation()
+  const navigation = useNavigation() // handles the nagivation to another screen
 
 
+  // Handles the login function
   const handleLogin = async () => {
 
     const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`;
@@ -33,7 +38,15 @@ function Login() {
         body: JSON.stringify(userData),
       });
 
+      console.log('Successfully logged in')
+
       const data = await response.json();
+
+      console.log("User data: ", data)
+
+      if (data.idToken) {
+        await AsyncStorage.setItem('userToken', data.idToken);
+      }
 
       navigation.navigate("Home/:user", { user: data });
 
@@ -44,7 +57,29 @@ function Login() {
   }
 
   async function checkTokenAndExecuteRequest() {
-    const currentIdToken = idToken;
+    const storedToken = await AsyncStorage.getItem('userToken');
+
+    if (storedToken) {
+      const response = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken: storedToken }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.users && data.users.legnth > 0) {
+        navigation.navigate("Home/:user", { user: data.users[0] });
+      } else {
+        await AsyncStorage.removeItem('userToken');
+      }
+    }
+    // const currentIdToken = idToken;
     const expirationTime = expiresIn;
 
     // Check if the token has expired
@@ -62,13 +97,12 @@ function Login() {
 
         const tokenData = await response.json();
 
-        const newIdToken = tokenData.id_token;
+        // const newIdToken = tokenData.id_token;
 
         setIdToken(tokenData.id_token)
 
         // Use the new idToken for further requests
         console.log('New Token ', tokenData.id_token);
-
 
       } catch (error) {
         console.error('Error refreshing token:', error);
@@ -78,10 +112,23 @@ function Login() {
     }
   }
 
+  // Handles generating a new password
+  const generatedRandomPassword = async () => {
+    try {
+      const response = await axios.get(`${API_URL}?length=17&lower=1&upper=0&int=1&special=0`);
+      if (response.data && response.data.password) {
+        setGeneratedPsswrd(response.data.password);
+      }
+    } catch (err) {
+      console.log("Error generating password");
+    }
+  }
 
   useEffect(() => {
 
     checkTokenAndExecuteRequest();
+
+    generatedRandomPassword();
 
   }, [])
 
@@ -111,6 +158,11 @@ function Login() {
           onChangeText={text => setPassword(text)}
           secureTextEntry
         />
+  
+        <View style={styles.psswrdText}>
+          <Text>Generated Password:</Text>
+          <Text>{generatedPsswrd}</Text>
+        </View>
         <View style={styles.btnSection}>
           <Pressable style={styles.button} onPress={() => handleLogin()}>
             <Text style={styles.btnText}>Sign In</Text>
@@ -191,6 +243,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.25,
     color: '#E0A96D',
   },
+
+  psswrdText: {
+    flexDirection: 'row',
+    margin: 10,
+    justifyContent: 'space-between'
+  }
 });
 
 export default Login

@@ -2,8 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react'
 import { Button, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { auth, db, storage } from '../../firebaseconfig';
-import { doc, updateDoc } from 'firebase/firestore';
+import { auth, storage } from '../../firebaseconfig';
 import { Audio } from 'expo-av';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -339,12 +338,12 @@ function Home({ route }) {
 
     // Handles the delete recording function
     async function deleteRecording(index) {
-
+        console.log("userId", userId)
         const recordingToDelete = recordings[index];
         console.log("Recording to be delete: ", recordingToDelete.id)
         
         try {
-            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete.id}=${apiKey}`;
+            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete.id}?key=${apiKey}`;
             // const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/3L4rZmt4G6RieXrYz3H9?key=${apiKey}`;
             
             const response = await fetch(endpoint, {
@@ -357,7 +356,7 @@ function Home({ route }) {
             if (response) {
                 console.log('Recording has been deleted from firestore');
 
-                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.title}`)
+                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.normalObject.title}`)
                 await deleteObject(audioFileRef);
                 console.log('Recording deleted from storage')
 
@@ -412,7 +411,7 @@ function Home({ route }) {
             loadRecordings();
         }
 
-    }, [userId])
+    }, [userId, recordings])
 
     return (
         <SafeAreaView>
