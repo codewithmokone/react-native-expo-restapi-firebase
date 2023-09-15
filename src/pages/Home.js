@@ -202,7 +202,6 @@ function Home({ route }) {
                 });
 
                 const recordedData = await response.json();
-                console.log("Recorded data saved : ", recordedData)
 
                 let updatedRecordings = [
                     ...recordings,
@@ -264,7 +263,7 @@ function Home({ route }) {
 
                 return (
                     <View key={index} style={styles.row}>
-                        <Text style={styles.fill}>{recordingLine.title.stringValue} - {recordingLine.duration.stringValue}</Text>
+                        <Text style={styles.fill}>{recordingLine.normalObject.title} - {recordingLine.normalObject.duration}</Text>
                         <Pressable style={styles.btnEdit} onPress={handlePlay}>
                             <Icon name="play" size={20} color="#E0A96D" />
                         </Pressable>
@@ -306,35 +305,46 @@ function Home({ route }) {
 
         const recording = recordings[index];
 
-        console.log("Update ",recordings[index])
-
         try {
-            // Update the name in Firestore
-            const recordRef = doc(db, 'recordings', recording.firestoreDocId);
-            await updateDoc(recordRef, { title: title });
-
-            const updatedRecordings = recordings.map((recordingItem) => {
-                if (recordingItem.id === recording.firestoreDocId) {
-                    return { ...recordingItem, title: title };
+            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recording.id}?currentDocument.exists=true&updateMask.fieldPaths=title&alt=json`
+            const updatedData = {
+                fields: {
+                    title: {
+                        stringValue : `${title}`
+                    },
                 }
-                return recordingItem;
+            };
+            
+            const response = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedData),
             });
 
-            setRecordings(updatedRecordings);
-            console.log('Title updated')
+            if (response) {
+                const updatedRecordings = [...recordings];
+                updatedRecordings[index].fields.title.stringValue = title;
+                setRecordings(updatedRecordings);
+                setEditingIndex(-1); // Reset editing state
+                console.log('Title updated');
+            } else {
+                console.log('Failed to update title')
+            }
         } catch (err) {
             console.log("Error renaming audio:", err)
         }
-
     }
 
     // Handles the delete recording function
     async function deleteRecording(index) {
 
         const recordingToDelete = recordings[index];
+        console.log("Recording to be delete: ", recordingToDelete.id)
         
         try {
-            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete}=${apiKey}`;
+            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete.id}=${apiKey}`;
             // const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/3L4rZmt4G6RieXrYz3H9?key=${apiKey}`;
             
             const response = await fetch(endpoint, {
@@ -347,7 +357,7 @@ function Home({ route }) {
             if (response) {
                 console.log('Recording has been deleted from firestore');
 
-                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.title.stringValue}`)
+                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.title}`)
                 await deleteObject(audioFileRef);
                 console.log('Recording deleted from storage')
 
@@ -373,15 +383,16 @@ function Home({ route }) {
                 const responseData = await response.json();
                 const documents = responseData.documents || [];
                 const recordingsArray = []
-                const recordingsObject = {}
 
                 documents.forEach(document => {
                     const data = document.fields; // Assuming data is stored in "fields"
                     const parts = document.name.split('/');
                     const id = parts[parts.length - 1]; // The last part is the document ID
-                    recordingsArray.push(data);
-                    recordingsObject[id] = data;
-                  
+                    let normalObject = {}
+                    for(let key in data){
+                        normalObject = {...normalObject, [key]: data[key].stringValue}
+                    }
+                    recordingsArray.push({id: id, normalObject})
                 });
                 
                 setRecordings(recordingsArray);

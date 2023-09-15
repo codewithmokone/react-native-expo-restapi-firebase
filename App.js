@@ -26,10 +26,8 @@ export default function App() {
           component={Home} 
           options={({ route }) => ({
           headerStyle: {
-            alignItems: 'center',
             justifyItems: 'center'
           },
-          
         })} 
         />
         <Stack.Screen name="Register" component={Register} />
