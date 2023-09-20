@@ -6,6 +6,8 @@ import { auth, storage } from '../../firebaseconfig';
 import { Audio } from 'expo-av';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
+// import RNFetchBlob from 'react-native-fetch-blob';
+// import DocumentPicker from 'react-native-document-picker';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
 const projectId = 'react-native-audio-recor-506b1';
@@ -119,61 +121,34 @@ function Home({ route }) {
 
             if (blob != null) {
 
-                let recordUrl = ''
+                const storageBucket = 'react-native-audio-recor-506b1.appspot.com';
+                const apiUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodeURIComponent(title)}`;
 
-                const audioFileRef = ref(storage, `audio/${userId}/${title}`);
-                const upload = uploadBytes(audioFileRef, blob).then(() => {
-                    getDownloadURL(audioFileRef).then((url) => {
-                        recordUrl = url;
-                        console.log(recordUrl)
-                        setRecordURL(recordUrl)
-                    })
-                })
-               
+                const formData = new FormData();
+                formData.append('audio', blob);
 
-                //                 import RNFetchBlob from 'react-native-fetch-blob';
+                const storageRef = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                    body: formData,
+                });
 
-                // async function uploadMediaToFirebaseStorage(fileUri) {
-                //     const bucketName = 'your-firebase-storage-bucket-name';
-                //     const objectName = 'path/to/your/file.jpg'; // Replace with the desired path and file name
-                //     const apiUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${objectName}`;
+                if (storageRef) {
+                    const data = await storageRef.json();
+                    if (data && data.downloadTokens) {
+                      const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodeURIComponent(title)}?alt=media&token=${data.downloadTokens}`;
+                      setRecordURL(downloadUrl);
+                      console.log('File uploaded successfully. Download URL:', downloadUrl);
+                    } else {
+                      console.error('Failed to get download URL from Firebase Storage response');
+                    }
+                  } else {
+                    console.error('File upload failed');
+                  }
 
-                //     // Replace 'YOUR_AUTH_TOKEN' with your Firebase Storage authorization token
-                //     const authToken = 'YOUR_AUTH_TOKEN';
-
-                //     try {
-                //         const response = await RNFetchBlob.fetch('POST', apiUrl, {
-                //             Authorization: `Bearer ${authToken}`,
-                //             'Content-Type': 'multipart/form-data',
-                //         }, [
-                //             { name: 'file', filename: 'file.jpg', data: RNFetchBlob.wrap(fileUri) },
-                //         ]);
-
-                //         if (response.respInfo.status === 200) {
-                //             console.log('Media uploaded successfully.');
-                //         } else {
-                //             console.error('Failed to upload media:', response.respInfo.status, response.data);
-                //         }
-                //     } catch (error) {
-                //         console.error('Error uploading media:', error);
-                //     }
-                // }
-
-                // // Example usage:
-                // import DocumentPicker from 'react-native-document-picker';
-
-                // async function pickAndUploadMedia() {
-                //     try {
-                //         const result = await DocumentPicker.pick({
-                //             type: [DocumentPicker.types.images], // You can specify the media types you want to allow
-                //         });
-
-                //         uploadMediaToFirebaseStorage(result.uri);
-                //     } catch (error) {
-                //         console.error('Error picking a file:', error);
-                //     }
-                // }
-
+                // Saving the data to firebase storage
                 const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?&key=${apiKey}`;
                 const recordData = {
                     "fields": {
@@ -215,7 +190,6 @@ function Home({ route }) {
                 setRecordings(updatedRecordings);
                 setRecording(null)
                 setTitle('')
-
             }
         } catch (err) {
             console.log(err)
@@ -309,11 +283,11 @@ function Home({ route }) {
             const updatedData = {
                 fields: {
                     title: {
-                        stringValue : `${title}`
+                        stringValue: `${title}`
                     },
                 }
             };
-            
+
             const response = await fetch(endpoint, {
                 method: 'PATCH',
                 headers: {
@@ -341,11 +315,11 @@ function Home({ route }) {
         console.log("userId", userId)
         const recordingToDelete = recordings[index];
         console.log("Recording to be delete: ", recordingToDelete.id)
-        
+
         try {
             const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToDelete.id}?key=${apiKey}`;
             // const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/3L4rZmt4G6RieXrYz3H9?key=${apiKey}`;
-            
+
             const response = await fetch(endpoint, {
                 method: 'DELETE',
                 headers: {
@@ -356,7 +330,7 @@ function Home({ route }) {
             if (response) {
                 console.log('Recording has been deleted from firestore');
 
-                const audioFileRef =ref(storage, `audio/${userId}/${recordingToDelete.normalObject.title}`)
+                const audioFileRef = ref(storage, `audio/${userId}/${recordingToDelete.normalObject.title}`)
                 await deleteObject(audioFileRef);
                 console.log('Recording deleted from storage')
 
@@ -366,8 +340,8 @@ function Home({ route }) {
             } else {
                 console.log('Failed to delete recordings')
             }
-        
-        } catch(err){
+
+        } catch (err) {
             console.log('Error deleting document ', err)
         }
     }
@@ -388,12 +362,12 @@ function Home({ route }) {
                     const parts = document.name.split('/');
                     const id = parts[parts.length - 1]; // The last part is the document ID
                     let normalObject = {}
-                    for(let key in data){
-                        normalObject = {...normalObject, [key]: data[key].stringValue}
+                    for (let key in data) {
+                        normalObject = { ...normalObject, [key]: data[key].stringValue }
                     }
-                    recordingsArray.push({id: id, normalObject})
+                    recordingsArray.push({ id: id, normalObject })
                 });
-                
+
                 setRecordings(recordingsArray);
 
             } catch (err) {
