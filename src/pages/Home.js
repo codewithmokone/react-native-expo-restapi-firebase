@@ -91,6 +91,8 @@ function Home({ route }) {
     // Handles aving the recording to firebase
     async function stopRecording() {
 
+        let recordingUrl = ''
+
         try {
             setRecording(undefined);
             await recording.stopAndUnloadAsync();
@@ -105,6 +107,7 @@ function Home({ route }) {
                 const xhr = new XMLHttpRequest();
                 xhr.onload = () => {
                     try {
+                        console.log(xhr.response)
                         resolve(xhr.response);
                     } catch (error) {
                         console.log("error:", error);
@@ -118,35 +121,36 @@ function Home({ route }) {
                 xhr.open("GET", audioFile, true);
                 xhr.send(null);
             });
+            // console.log("Audio File ",blob)
 
             if (blob != null) {
 
                 const storageBucket = 'react-native-audio-recor-506b1.appspot.com';
-                const apiUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodeURIComponent(title)}`;
-
-                const formData = new FormData();
-                formData.append('audio', blob);
+                const apiUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodeURIComponent(title)}`;
 
                 const storageRef = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                    body: formData,
+                    headers: 'Content-Type',
+                    body: blob,
                 });
+
+                blob.close()
 
                 if (storageRef) {
                     const data = await storageRef.json();
-                    if (data && data.downloadTokens) {
-                      const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodeURIComponent(title)}?alt=media&token=${data.downloadTokens}`;
-                      setRecordURL(downloadUrl);
-                      console.log('File uploaded successfully. Download URL:', downloadUrl);
-                    } else {
-                      console.error('Failed to get download URL from Firebase Storage response');
+                    console.log(data)
+                    try {
+                        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodeURIComponent(title)}?alt=media&token=${data.downloadTokens}`;
+                        recordingUrl = downloadUrl;
+                        console.log('File uploaded successfully. Download URL:', recordingUrl);
+                        setRecordURL(recordingUrl);
+                       
+                    } catch (err){
+                        console.log('File did not upload' , err);
                     }
                   } else {
                     console.error('File upload failed');
-                  }
+                }
 
                 // Saving the data to firebase storage
                 const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?&key=${apiKey}`;
@@ -162,7 +166,7 @@ function Home({ route }) {
                             "stringValue": `${title}`
                         },
                         "fileURL": {
-                            "stringValue": `${recordURL}`
+                            "stringValue": `${recordingUrl}`
                         }
                     }
                 }
@@ -270,7 +274,8 @@ function Home({ route }) {
     // Handles the edit functionality
     function editRecordingName(index) {
         setEditingIndex(index);
-        setTitle(recordings[index].title.stringValue);
+        setTitle(recordings[index].title);
+        setEditingIndex('');
     }
 
     // Handles the update functionality
@@ -281,9 +286,9 @@ function Home({ route }) {
         try {
             const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recording.id}?currentDocument.exists=true&updateMask.fieldPaths=title&alt=json`
             const updatedData = {
-                fields: {
-                    title: {
-                        stringValue: `${title}`
+                "fields": {
+                    "title": {
+                        "stringValue": `${title}`
                     },
                 }
             };
@@ -330,9 +335,9 @@ function Home({ route }) {
             if (response) {
                 console.log('Recording has been deleted from firestore');
 
-                const audioFileRef = ref(storage, `audio/${userId}/${recordingToDelete.normalObject.title}`)
-                await deleteObject(audioFileRef);
-                console.log('Recording deleted from storage')
+                // const audioFileRef = ref(storage, `audio/${userId}/${recordingToDelete.normalObject.title}`)
+                // await deleteObject(audioFileRef);
+                // console.log('Recording deleted from storage')
 
                 const updatedRecordings = [...recordings];
                 updatedRecordings.splice(title, 1);

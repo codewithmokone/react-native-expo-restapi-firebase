@@ -12,12 +12,11 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [idToken, setIdToken] = useState('');
-  const [expiresIn, setExpiresIn] = useState('');
-  const [refreshToken, setRefreshToken] = useState('');
+  // const [expiresIn, setExpiresIn] = useState('');
+  // const [refreshToken, setRefreshToken] = useState('');
   const [generatedPsswrd, setGeneratedPsswrd] = useState('')
 
   const navigation = useNavigation() // handles the nagivation to another screen
-
 
   // Handles the login function
   const handleLogin = async () => {
@@ -38,14 +37,17 @@ function Login() {
         body: JSON.stringify(userData),
       });
 
-      console.log('Successfully logged in')
+      alert('Successfully logged in');
 
       const data = await response.json();
+      setIdToken(data.idToken)
 
-      console.log("User data: ", data)
+      // console.log("User data: ", data)
 
       if (data.idToken) {
         await AsyncStorage.setItem('userToken', data.idToken);
+        await AsyncStorage.setItem('expiresIn', data.expiresIn.toString());
+        await AsyncStorage.setItem('refreshToken', data.refreshToken);
       }
 
       navigation.navigate("Home/:user", { user: data });
@@ -57,59 +59,45 @@ function Login() {
   }
 
   async function checkTokenAndExecuteRequest() {
+
     const storedToken = await AsyncStorage.getItem('userToken');
 
     if (storedToken) {
-      const response = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ idToken: storedToken }),
-        }
-      );
+      navigation.navigate("Home/:user", { user: { idToken: storedToken } });
+    } else {
 
-      const data = await response.json();
-
-      if (data.users && data.users.legnth > 0) {
-        navigation.navigate("Home/:user", { user: data.users[0] });
-      } else {
-        await AsyncStorage.removeItem('userToken');
-      }
     }
     // const currentIdToken = idToken;
-    const expirationTime = expiresIn;
+    // const expirationTime = expiresIn;
 
-    // Check if the token has expired
-    if (Date.now() >= expirationTime * 1000) {
-      try {
-        // If the token has expired, use the refreshToken to get a new idToken
-        const currentRefreshToken = refreshToken;
-        const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `grant_type=refresh_token&refresh_token=${currentRefreshToken}`,
-        });
+    // // Check if the token has expired
+    // if (Date.now() >= expirationTime * 1000) {
+    //   try {
+    //     // If the token has expired, use the refreshToken to get a new idToken
+    //     const currentRefreshToken = refreshToken;
+    //     const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/x-www-form-urlencoded',
+    //       },
+    //       body: `grant_type=refresh_token&refresh_token=${currentRefreshToken}`,
+    //     });
 
-        const tokenData = await response.json();
+    //     const tokenData = await response.json();
 
-        // const newIdToken = tokenData.id_token;
+    //     // const newIdToken = tokenData.id_token;
 
-        setIdToken(tokenData.id_token)
+    //     setIdToken(tokenData.id_token)
 
-        // Use the new idToken for further requests
-        console.log('New Token ', tokenData.id_token);
+    //     // Use the new idToken for further requests
+    //     console.log('New Token ', tokenData.id_token);
 
-      } catch (error) {
-        console.error('Error refreshing token:', error);
-      }
-    } else {
-      console.log('The token is still valid, proceed with the original request')
-    }
+    //   } catch (error) {
+    //     console.error('Error refreshing token:', error);
+    //   }
+    // } else {
+    //   console.log('The token is still valid, proceed with the original request')
+    // }
   }
 
   // Handles generating a new password
@@ -125,11 +113,8 @@ function Login() {
   }
 
   useEffect(() => {
-
     checkTokenAndExecuteRequest();
-
     generatedRandomPassword();
-
   }, [])
 
   const handleNavigate = () => {

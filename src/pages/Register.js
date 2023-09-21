@@ -31,6 +31,7 @@ function Register() {
             });
 
             const data = await response.json();
+            console.log(data);
             navigation.navigate('Login');
             return data
         }catch(err){
@@ -50,12 +51,12 @@ function Register() {
             <View>
             </View>
             <View style={styles.inputSection}>
-                <Text>Name</Text>
-                <TextInput
+                {/* <Text>Name</Text> */}
+                {/* <TextInput
                     style={styles.input}
                     placeholder=" Enter your name"
                     onChangeText={text => setName(text)}
-                />
+                /> */}
                 <Text>Email</Text>
                 <TextInput
                     style={styles.input}
