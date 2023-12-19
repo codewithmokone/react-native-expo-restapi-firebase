@@ -6,6 +6,7 @@ import { auth, storage } from '../../firebaseconfig';
 import { Audio } from 'expo-av';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { TouchableOpacity } from 'react-native-web';
 // import RNFetchBlob from 'react-native-fetch-blob';
 // import DocumentPicker from 'react-native-document-picker';
 
@@ -144,11 +145,11 @@ function Home({ route }) {
                         recordingUrl = downloadUrl;
                         console.log('File uploaded successfully. Download URL:', recordingUrl);
                         setRecordURL(recordingUrl);
-                       
-                    } catch (err){
-                        console.log('File did not upload' , err);
+
+                    } catch (err) {
+                        console.log('File did not upload', err);
                     }
-                  } else {
+                } else {
                     console.error('File upload failed');
                 }
 
@@ -212,61 +213,78 @@ function Home({ route }) {
     // Handles the stored recordings view
     function getRecordingLines() {
 
-        if (!recordings) {
+        if (!recordings || recordings.length === 0) {
             return <Text>No recordings availabe</Text>
         } else {
             return recordings.map((recordingLine, index) => {
 
-                const sound = new Audio.Sound();
+                if (recordingLine && recordingLine.normalObject && recordingLine.normalObject.title) {
+                    const sound = new Audio.Sound();
 
-                // Handles the play function
-                const handlePlay = async () => {
-                    if (!isPlaying) {
-                        try {
-                            setIsPlaying(true)
-                            await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
-                            await sound.playAsync();
-                            sound.setOnPlaybackStatusUpdate(status => {
-                                if (status.didJustFinish) {
+                    // Handles the play function
+                    const handlePlay = async () => {
+                        if (!isPlaying) {
+                            try {
+                                setIsPlaying(true);
+                                if (recordingLine && recordingLine.fileURL && recordingLine.fileURL.stringValue) {
+                                    await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
+                                    await sound.playAsync();
+                                    sound.setOnPlaybackStatusUpdate(status => {
+                                        if (status.didJustFinish) {
+                                            setIsPlaying(false);
+                                        }
+                                    });
+                                } else {
+                                    console.log('Recording URL not available or invalid.');
                                     setIsPlaying(false);
                                 }
-                            });
-                        } catch (err) {
-                            console.log('Error playing audio', err);
-                            setIsPlaying(false);
+                                // await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
+                                // await sound.playAsync();
+                                // sound.setOnPlaybackStatusUpdate(status => {
+                                //     if (status.didJustFinish) {
+                                //         setIsPlaying(false);
+                                //     }
+                                // });
+                            } catch (err) {
+                                console.log('Error playing audio', err);
+                                setIsPlaying(false);
+                            }
                         }
                     }
-                }
 
-                return (
-                    <View key={index} style={styles.row}>
-                        <Text style={styles.fill}>{recordingLine.normalObject.title} - {recordingLine.normalObject.duration}</Text>
-                        <Pressable style={styles.btnEdit} onPress={handlePlay}>
-                            <Icon name="play" size={20} color="#E0A96D" />
-                        </Pressable>
-                        <View style={styles.btnEdit}>
-                            {
-                                editingIndex === index ? (
-                                    <View>
-                                        <Pressable onPress={() => updateRecording(index)}>
-                                            <Icon name="save" size={20} color="#E0A96D" />
-                                        </Pressable>
-                                    </View>
-                                ) : (
-                                    <View>
-                                        <Pressable onPress={() => editRecordingName(index)}>
-                                            <Icon name="edit" size={20} color="#E0A96D" />
-                                        </Pressable>
-                                    </View>
-                                )
-                            }
+                    return (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.fill}>{recordingLine.normalObject.title} - {recordingLine.normalObject.duration}</Text>
+                            <Pressable style={styles.btnEdit} onPress={handlePlay}>
+                                <Icon name="play" size={20} color="#E0A96D" />
+                            </Pressable>
+                            <View style={styles.btnEdit}>
+                                {
+                                    editingIndex === index ? (
+                                        <View>
+                                            <Pressable onPress={() => updateRecording(index)}>
+                                                <Icon name="save" size={20} color="#E0A96D" />
+                                            </Pressable>
+                                        </View>
+                                    ) : (
+                                        <View>
+                                            <Pressable onPress={() => editRecordingName(index)}>
+                                                <Icon name="edit" size={20} color="#E0A96D" />
+                                            </Pressable>
+                                        </View>
+                                    )
+                                }
+                            </View>
+                            <View>
+                                <Pressable style={styles.btnDelete} onPress={() => deleteRecording(index)}>
+                                    <Icon name="remove" size={20} color="#E0A96D" />
+                                </Pressable>
+                            </View>
                         </View>
-
-                        <Pressable style={styles.btnDelete} onPress={() => deleteRecording(index)}>
-                            <Icon name="remove" size={20} color="#E0A96D" />
-                        </Pressable>
-                    </View>
-                );
+                    );
+                } else {
+                    return <Text>Error: Recording data incomplete</Text>;
+                }
             });
         }
     }
@@ -394,7 +412,6 @@ function Home({ route }) {
 
     return (
         <SafeAreaView>
-
             <View style={styles.container}>
                 <View style={styles.userInfo} >
                     <Text style={styles.userInfoText}><Icon name="user" size={20} color='#E0A96D' /> : {user.email}</Text>
