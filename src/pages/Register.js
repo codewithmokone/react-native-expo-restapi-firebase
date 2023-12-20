@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
 
 
 function Register() {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [generatedPsswrd, setGeneratedPsswrd] = useState('');
     const [errorMessage, setErrorMessage] = useState('')
 
     const navigation = useNavigation();
@@ -44,9 +46,26 @@ function Register() {
         }
     }
 
+
     const handleNavigate = () => {
         navigation.navigate('Login');
     }
+
+    // Handles generating a new password
+    const generatedRandomPassword = async () => {
+        try {
+            const response = await axios.get(`${API_URL}?length=17&lower=1&upper=0&int=1&special=0`);
+            if (response.data && response.data.password) {
+                setGeneratedPsswrd(response.data.password);
+            }
+        } catch (err) {
+            console.log("Error generating password");
+        }
+    }
+
+    useEffect(() => {
+        generatedRandomPassword();
+    }, [])
 
     return (
         <KeyboardAvoidingView
@@ -60,26 +79,30 @@ function Register() {
                     placeholder=" Enter your name"
                     onChangeText={text => setName(text)}
                 /> */}
-                {errorMessage && (<Text style={{color:'red'}} className="error"> {errorMessage} </Text>)}
-                <Text>Email</Text>
+                {errorMessage && (<Text style={{ color: 'red' }} className="error"> {errorMessage} </Text>)}
+                <Text style={{width:'100%'}}>Email</Text>
                 <TextInput
                     style={styles.input}
                     placeholder=" Enter your email"
                     onChangeText={text => setEmail(text)}
                 />
-                <Text>Password</Text>
+                <Text style={{width:'100%'}}>Password</Text>
                 <TextInput
                     style={styles.input}
                     placeholder=" Enter your password"
                     onChangeText={text => setPassword(text)}
                 />
+                <View style={{width:'100%',flexDirection:'row',justifyContent:'space-between'}}>
+                    <Text>Generated Password:</Text>
+                    <Text>{generatedPsswrd}</Text>
+                </View>
                 <View style={styles.btnSection}>
                     <Pressable style={styles.button} onPress={handleRegister}>
                         <Text style={styles.btnText}>Sign Up</Text>
                     </Pressable>
                 </View>
             </View>
-            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center',marginTop:30 }}>
+            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 30 }}>
                 <Text>Already Have a account?</Text>
                 <Pressable style={styles.linkButton} onPress={handleNavigate}>
                     <Text style={styles.btnText}> Sign In</Text>
@@ -105,6 +128,8 @@ const styles = StyleSheet.create({
 
     inputSection: {
         width: '90%',
+        justifyContent:'center',
+        alignItems:'center'
     },
 
     input: {
@@ -114,9 +139,9 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         marginTop: 5,
         marginBottom: 15,
-        width:'100%',
-        justifyContent:'center',
-        alignItems:'center'
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center'
     },
 
     buttonLogin: {
@@ -126,7 +151,7 @@ const styles = StyleSheet.create({
     btnSection: {
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginTop: 30,
     },
 
     button: {

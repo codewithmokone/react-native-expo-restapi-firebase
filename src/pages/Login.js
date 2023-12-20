@@ -3,7 +3,6 @@ import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } fr
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { getAuth, onAuthStateChanged } from "firebase/auth";
-import axios from 'axios';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
 const API_URL = 'https://www.psswrd.net/api/v1/password/';
@@ -16,7 +15,6 @@ function Login() {
   // const [expiresIn, setExpiresIn] = useState('');
   // const [refreshToken, setRefreshToken] = useState('');
   const [userData, setUserData] = useState('');
-  const [generatedPsswrd, setGeneratedPsswrd] = useState('');
   const [errorMessage,setErrorMessage] = useState('')
 
   const navigation = useNavigation() // handles the nagivation to another screen
@@ -85,17 +83,6 @@ function Login() {
     }
   }
 
-  // Handles generating a new password
-  const generatedRandomPassword = async () => {
-    try {
-      const response = await axios.get(`${API_URL}?length=17&lower=1&upper=0&int=1&special=0`);
-      if (response.data && response.data.password) {
-        setGeneratedPsswrd(response.data.password);
-      }
-    } catch (err) {
-      console.log("Error generating password");
-    }
-  }
 
   useEffect(() => {
     const checkTokenAndExecuteRequest = async () => {
@@ -115,7 +102,6 @@ function Login() {
       }
     }
     checkTokenAndExecuteRequest();
-    generatedRandomPassword();
   }, []);
 
   const handleNavigate = () => {
@@ -145,11 +131,6 @@ function Login() {
           onChangeText={text => setPassword(text)}
           secureTextEntry
         />
-
-        <View style={styles.psswrdText}>
-          <Text>Generated Password:</Text>
-          <Text>{generatedPsswrd}</Text>
-        </View>
         <View style={styles.btnSection}>
           <Pressable style={styles.button} onPress={() => handleLogin()}>
             <Text style={styles.btnText}>Sign In</Text>
