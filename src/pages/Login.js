@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Text, View, TextInput, StyleSheet, KeyboardAvoidingView, Pressable } from 'react-native'
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { getAuth, onAuthStateChanged } from "firebase/auth";
 import axios from 'axios';
 
 const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
@@ -14,12 +15,19 @@ function Login() {
   const [idToken, setIdToken] = useState('');
   // const [expiresIn, setExpiresIn] = useState('');
   // const [refreshToken, setRefreshToken] = useState('');
-  const [generatedPsswrd, setGeneratedPsswrd] = useState('')
+  const [userData, setUserData] = useState('');
+  const [generatedPsswrd, setGeneratedPsswrd] = useState('');
+  const [errorMessage,setErrorMessage] = useState('')
 
   const navigation = useNavigation() // handles the nagivation to another screen
 
   // Handles the login function
   const handleLogin = async () => {
+
+    if(!email || !password){
+      setErrorMessage('email and password required.');
+      return;
+    }
 
     const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`;
     const userData = {
@@ -40,64 +48,41 @@ function Login() {
       alert('Successfully logged in');
 
       const data = await response.json();
-      setIdToken(data.idToken)
-
-      // console.log("User data: ", data)
 
       if (data.idToken) {
-        await AsyncStorage.setItem('userToken', data.idToken);
-        await AsyncStorage.setItem('expiresIn', data.expiresIn.toString());
-        await AsyncStorage.setItem('refreshToken', data.refreshToken);
+        await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+        navigation.navigate("Home/:user", { user: data });
+        return data;
+        // await AsyncStorage.setItem('userToken', data.idToken);
+        // await AsyncStorage.setItem('expiresIn', data.expiresIn.toString());
+        // await AsyncStorage.setItem('refreshToken', data.refreshToken);
       }
-
-      navigation.navigate("Home/:user", { user: data });
-
-      return data
     } catch (err) {
       console.log('Login Failed: ', err)
     }
   }
 
-  async function checkTokenAndExecuteRequest() {
+  async function getUserInfo(token) {
+    try {
+      const response = await fetch('https://your-api-endpoint/userinfo', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+        // You might need to adjust the endpoint and headers based on your API
+      });
 
-    const storedToken = await AsyncStorage.getItem('userToken');
-
-    if (storedToken) {
-      navigation.navigate("Home/:user", { user: { idToken: storedToken } });
-    } else {
-
+      if (response.ok) {
+        const userInfo = await response.json();
+        return userInfo;
+      } else {
+        throw new Error('Failed to fetch user information');
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      throw error;
     }
-    // const currentIdToken = idToken;
-    // const expirationTime = expiresIn;
-
-    // // Check if the token has expired
-    // if (Date.now() >= expirationTime * 1000) {
-    //   try {
-    //     // If the token has expired, use the refreshToken to get a new idToken
-    //     const currentRefreshToken = refreshToken;
-    //     const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
-    //       method: 'POST',
-    //       headers: {
-    //         'Content-Type': 'application/x-www-form-urlencoded',
-    //       },
-    //       body: `grant_type=refresh_token&refresh_token=${currentRefreshToken}`,
-    //     });
-
-    //     const tokenData = await response.json();
-
-    //     // const newIdToken = tokenData.id_token;
-
-    //     setIdToken(tokenData.id_token)
-
-    //     // Use the new idToken for further requests
-    //     console.log('New Token ', tokenData.id_token);
-
-    //   } catch (error) {
-    //     console.error('Error refreshing token:', error);
-    //   }
-    // } else {
-    //   console.log('The token is still valid, proceed with the original request')
-    // }
   }
 
   // Handles generating a new password
@@ -113,14 +98,29 @@ function Login() {
   }
 
   useEffect(() => {
+    const checkTokenAndExecuteRequest = async () => {
+
+      try {
+        const userInfoString = await AsyncStorage.getItem('userInfo');
+        const userInfo = JSON.parse(userInfoString);
+
+        if (userInfo) {
+          setUserData(userInfo)
+          navigation.navigate("Home/:user", { user: userInfo });
+        } else {
+          console.log('Error fetching user data: ', error);
+        }
+      } catch (error) {
+        console.log('Error fetching user data: ', error);
+      }
+    }
     checkTokenAndExecuteRequest();
     generatedRandomPassword();
-  }, [])
+  }, []);
 
   const handleNavigate = () => {
-    navigation.navigate('Register')
+    navigation.navigate('Register');
   }
-
 
   return (
     <KeyboardAvoidingView
@@ -128,14 +128,16 @@ function Login() {
       behavior='padding'
     >
       <View style={styles.inputContainer}>
-        <Text>Email</Text>
+        {errorMessage && (<Text style={{color:'red'}} className="error"> {errorMessage} </Text>)}
+        <Text style={{width:'90%'}}>Email</Text>
         <TextInput
           style={styles.input}
           value={email}
           placeholder=" Enter your email"
           onChangeText={text => setEmail(text)}
         />
-        <Text>Password</Text>
+        {}
+        <Text style={{width:'90%'}}>Password</Text>
         <TextInput
           style={styles.input}
           value={password}
@@ -143,7 +145,7 @@ function Login() {
           onChangeText={text => setPassword(text)}
           secureTextEntry
         />
-  
+
         <View style={styles.psswrdText}>
           <Text>Generated Password:</Text>
           <Text>{generatedPsswrd}</Text>
@@ -179,7 +181,9 @@ const styles = StyleSheet.create({
   },
 
   inputContainer: {
-    width: '80%',
+    width: '100%',
+    justifyContent:'center',
+    alignItems:'center'
   },
 
   input: {
@@ -188,7 +192,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 5,
-    marginBottom: 15
+    marginBottom: 15,
+    width:"90%"
   },
 
   buttonLogin: {

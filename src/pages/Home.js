@@ -1,12 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react'
-import { Button, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { auth, storage } from '../../firebaseconfig';
+import { Alert, Button, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { auth } from '../../firebaseconfig';
 import { Audio } from 'expo-av';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { TouchableOpacity } from 'react-native-web';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // import RNFetchBlob from 'react-native-fetch-blob';
 // import DocumentPicker from 'react-native-document-picker';
 
@@ -28,6 +27,8 @@ function Home({ route }) {
     const [recordURL, setRecordURL] = useState('');
 
     const navigation = useNavigation();
+
+    const sound = new Audio.Sound();
 
     const recordingOptions = {
         isMeteringEnabled: true,
@@ -60,33 +61,41 @@ function Home({ route }) {
     const handleSignOut = () => {
         signOut(auth)
             .then(() => {
+                AsyncStorage.clear()
                 navigation.navigate('Login');
             })
     }
 
     // Handles the recording function
     async function startRecording() {
-        try {
 
-            const permission = await Audio.requestPermissionsAsync();
+        if(user){
+            try {
 
-            if (permission.status === "granted") {
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: true,
-                    playsInSilentModeIOS: true
-                });
-
-                const { recording } = await Audio.Recording.createAsync(
-                    recordingOptions
-                );
-
-                setRecording(recording);
-            } else {
-                setMessage("Please grant permission to app to access microphone");
+                const permission = await Audio.requestPermissionsAsync();
+    
+                if (permission.status === "granted") {
+                    await Audio.setAudioModeAsync({
+                        allowsRecordingIOS: true,
+                        playsInSilentModeIOS: true
+                    });
+    
+                    const { recording } = await Audio.Recording.createAsync(
+                        recordingOptions
+                    );
+    
+                    setRecording(recording);
+                } else {
+                    setMessage("Please grant permission to app to access microphone");
+                }
+            } catch (err) {
+                console.log("Failed to start recording", err)
             }
-        } catch (err) {
-            console.log("Failed to start recording", err)
+        }else{
+            return <Alert>Please login to record audio.</Alert>
         }
+
+        
     }
 
     // Handles aving the recording to firebase
@@ -95,7 +104,7 @@ function Home({ route }) {
         let recordingUrl = ''
 
         try {
-            setRecording(undefined);
+            setRecording(null);
             await recording.stopAndUnloadAsync();
             await Audio.setAudioModeAsync({
                 allowsRecordingIOS: false,
@@ -139,7 +148,6 @@ function Home({ route }) {
 
                 if (storageRef) {
                     const data = await storageRef.json();
-                    console.log(data)
                     try {
                         const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodeURIComponent(title)}?alt=media&token=${data.downloadTokens}`;
                         recordingUrl = downloadUrl;
@@ -210,28 +218,25 @@ function Home({ route }) {
         return `${minutesDisplay}:${secondsDisplay}`;
     }
 
-    const sound = new Audio.Sound();
-
     // Handles the stored recordings view
     function getRecordingLines() {
 
         if (!recordings || recordings.length === 0) {
-            return <Text>No recordings availabe</Text>
+            return <Text>No recordings available</Text>
         } else {
             return recordings.map((recordingLine, index) => {
-
-                if (recordingLine && recordingLine.normalObject && recordingLine.normalObject.title) {
+                if (recordingLine) {
                     // Handles the play function
                     const handlePlay = async () => {
                         if (!isPlaying) {
                             try {
                                 setIsPlaying(true);
-                                if (recordingLine && recordingLine.fileURL && recordingLine.fileURL.stringValue) {
-                                    console.log("URL: ", recordingLine)
+                                if (recordingLine && recordingLine.normalObject && recordingLine.normalObject.fileURL) {
                                     await sound.unloadAsync();
-                                    await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
+                                    await sound.loadAsync({ uri: recordingLine.normalObject.fileURL })
                                     await sound.playAsync();
                                     sound.setOnPlaybackStatusUpdate(status => {
+                                        // console.log('Playback status: ',status);
                                         if (status.didJustFinish) {
                                             setIsPlaying(false);
                                             sound.unloadAsync();
@@ -241,13 +246,6 @@ function Home({ route }) {
                                     console.log('Recording URL not available or invalid.');
                                     setIsPlaying(false);
                                 }
-                                // await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
-                                // await sound.playAsync();
-                                // sound.setOnPlaybackStatusUpdate(status => {
-                                //     if (status.didJustFinish) {
-                                //         setIsPlaying(false);
-                                //     }
-                                // });
                             } catch (err) {
                                 console.log('Error playing audio', err);
                                 setIsPlaying(false);
@@ -458,13 +456,11 @@ function Home({ route }) {
     }
 
     useEffect(() => {
-
         if (userId) {
             // Load saved recordings when the components mount
             loadRecordings();
         }
-
-    }, [userId, recordings])
+    }, [])
 
     return (
         <SafeAreaView>

@@ -28,6 +28,7 @@ export default function App() {
           headerStyle: {
             justifyItems: 'center'
           },
+          title:'Home'
         })} 
         />
         <Stack.Screen name="Register" component={Register} />

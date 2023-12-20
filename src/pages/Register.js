@@ -7,11 +7,17 @@ function Register() {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [errorMessage, setErrorMessage] = useState('')
 
     const navigation = useNavigation();
 
     const handleRegister = async () => {
-        
+
+        if (!email || !password) {
+            setErrorMessage('email and password required.');
+            return;
+        }
+
         const apiKey = 'AIzaSyBJM9aNj0Gh1kLLmpsHf9aTzVVW96oTKEA';
 
         const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
@@ -21,7 +27,7 @@ function Register() {
             returnSecureToken: true,
         }
 
-        try{
+        try {
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -31,10 +37,9 @@ function Register() {
             });
 
             const data = await response.json();
-            console.log(data);
             navigation.navigate('Login');
             return data
-        }catch(err){
+        } catch (err) {
             console.log('Error creating user: ', err)
         }
     }
@@ -48,8 +53,6 @@ function Register() {
             style={styles.container}
             behavior='padding'
         >
-            <View>
-            </View>
             <View style={styles.inputSection}>
                 {/* <Text>Name</Text> */}
                 {/* <TextInput
@@ -57,6 +60,7 @@ function Register() {
                     placeholder=" Enter your name"
                     onChangeText={text => setName(text)}
                 /> */}
+                {errorMessage && (<Text style={{color:'red'}} className="error"> {errorMessage} </Text>)}
                 <Text>Email</Text>
                 <TextInput
                     style={styles.input}
@@ -75,8 +79,8 @@ function Register() {
                     </Pressable>
                 </View>
             </View>
-            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={styles.signinLink}>Already Have a account?</Text>
+            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center',marginTop:30 }}>
+                <Text>Already Have a account?</Text>
                 <Pressable style={styles.linkButton} onPress={handleNavigate}>
                     <Text style={styles.btnText}> Sign In</Text>
                 </Pressable>
@@ -88,7 +92,7 @@ function Register() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#588157',
+        backgroundColor: '#DDC3A5',
         alignItems: 'center',
         justifyContent: 'center'
     },
@@ -100,7 +104,7 @@ const styles = StyleSheet.create({
     },
 
     inputSection: {
-        width: '80%',
+        width: '90%',
     },
 
     input: {
@@ -109,7 +113,10 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 10,
         marginTop: 5,
-        marginBottom: 15
+        marginBottom: 15,
+        width:'100%',
+        justifyContent:'center',
+        alignItems:'center'
     },
 
     buttonLogin: {
@@ -120,7 +127,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
-      },
+    },
 
     button: {
         width: 150,
