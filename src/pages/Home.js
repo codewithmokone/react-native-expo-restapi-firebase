@@ -210,6 +210,8 @@ function Home({ route }) {
         return `${minutesDisplay}:${secondsDisplay}`;
     }
 
+    const sound = new Audio.Sound();
+
     // Handles the stored recordings view
     function getRecordingLines() {
 
@@ -219,19 +221,20 @@ function Home({ route }) {
             return recordings.map((recordingLine, index) => {
 
                 if (recordingLine && recordingLine.normalObject && recordingLine.normalObject.title) {
-                    const sound = new Audio.Sound();
-
                     // Handles the play function
                     const handlePlay = async () => {
                         if (!isPlaying) {
                             try {
                                 setIsPlaying(true);
                                 if (recordingLine && recordingLine.fileURL && recordingLine.fileURL.stringValue) {
+                                    console.log("URL: ", recordingLine)
+                                    await sound.unloadAsync();
                                     await sound.loadAsync({ uri: recordingLine.fileURL.stringValue })
                                     await sound.playAsync();
                                     sound.setOnPlaybackStatusUpdate(status => {
                                         if (status.didJustFinish) {
                                             setIsPlaying(false);
+                                            sound.unloadAsync();
                                         }
                                     });
                                 } else {
@@ -260,16 +263,16 @@ function Home({ route }) {
                             </Pressable>
                             <View style={styles.btnEdit}>
                                 {
-                                    editingIndex === index ? (
+                                    editingIndex === recordingLine.id ? (
                                         <View>
-                                            <Pressable onPress={() => updateRecording(index)}>
-                                                <Icon name="save" size={20} color="#E0A96D" />
+                                            <Pressable onPress={() => updateRecording(recordingLine.id)}>
+                                                <Text style={{color:"#E0A96D"}}>Update</Text>
                                             </Pressable>
                                         </View>
                                     ) : (
                                         <View>
-                                            <Pressable onPress={() => editRecordingName(index)}>
-                                                <Icon name="edit" size={20} color="#E0A96D" />
+                                            <Pressable onPress={() => editRecordingName(recordingLine.id)}>
+                                                <Text style={{color:"#E0A96D"}}>Edit</Text>
                                             </Pressable>
                                         </View>
                                     )
@@ -290,47 +293,100 @@ function Home({ route }) {
     }
 
     // Handles the edit functionality
-    function editRecordingName(index) {
-        setEditingIndex(index);
-        setTitle(recordings[index].title);
-        setEditingIndex('');
+    function editRecordingName(id) {
+
+        const recordingToEdit = recordings.find(recording => recording.id === id);
+
+        if (recordingToEdit) {
+            setTitle(recordingToEdit.normalObject.title);
+            setEditingIndex(id);
+        } else {
+            console.log('Recording not found for editing');
+        }
     }
 
     // Handles the update functionality
-    async function updateRecording(index) {
+    async function updateRecording(id) {
 
-        const recording = recordings[index];
+        const recordingToUpdate = id;
+        console.log(id)
 
-        try {
-            const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recording.id}?currentDocument.exists=true&updateMask.fieldPaths=title&alt=json`
-            const updatedData = {
-                "fields": {
-                    "title": {
-                        "stringValue": `${title}`
+        if (recordingToUpdate) {
+            try {
+                const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recordingToUpdate}?currentDocument.exists=true&updateMask.fieldPaths=title&alt=json`;
+                const updatedData = {
+                    "fields": {
+                        "title": {
+                            "stringValue": `${title}`
+                        },
+                    }
+                };
+    
+                const response = await fetch(endpoint, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
                     },
+                    body: JSON.stringify(updatedData),
+                });
+    
+                if (response.ok) {
+                    const updatedRecordings = recordings.map(rec => {
+                        if (rec.id === recordingToUpdate.id) {
+                            return {
+                                ...rec,
+                                normalObject: {
+                                    ...rec.normalObject,
+                                    title: title,
+                                }
+                            };
+                        }
+                        return rec;
+                    });
+    
+                    setRecordings(updatedRecordings);
+                    setEditingIndex(-1); // Reset editing state
+                    console.log('Title updated');
+                } else {
+                    console.log('Failed to update title');
                 }
-            };
-
-            const response = await fetch(endpoint, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updatedData),
-            });
-
-            if (response) {
-                const updatedRecordings = [...recordings];
-                updatedRecordings[index].fields.title.stringValue = title;
-                setRecordings(updatedRecordings);
-                setEditingIndex(-1); // Reset editing state
-                console.log('Title updated');
-            } else {
-                console.log('Failed to update title')
+            } catch (err) {
+                console.log("Error renaming audio:", err);
             }
-        } catch (err) {
-            console.log("Error renaming audio:", err)
+        } else {
+            console.log('Recording not found for updating');
         }
+
+        // try {
+        //     const endpoint = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${recording.id}?currentDocument.exists=true&updateMask.fieldPaths=title&alt=json`
+        //     const updatedData = {
+        //         "fields": {
+        //             "title": {
+        //                 "stringValue": `${title}`
+        //             },
+        //         }
+        //     };
+
+        //     const response = await fetch(endpoint, {
+        //         method: 'PATCH',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify(updatedData),
+        //     });
+
+        //     if (response) {
+        //         const updatedRecordings = [...recordings];
+        //         updatedRecordings[index].fields.title.stringValue = title;
+        //         setRecordings(updatedRecordings);
+        //         setEditingIndex(-1); // Reset editing state
+        //         console.log('Title updated');
+        //     } else {
+        //         console.log('Failed to update title')
+        //     }
+        // } catch (err) {
+        //     console.log("Error renaming audio:", err)
+        // }
     }
 
     // Handles the delete recording function
